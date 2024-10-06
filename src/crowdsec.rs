@@ -5,7 +5,7 @@ use anyhow::anyhow;
 use axum::body::{Body, HttpBody};
 use axum::extract::Request;
 use axum::http::{HeaderMap, HeaderName, HeaderValue, Uri};
-use hyper_rustls::HttpsConnector;
+use hyper_rustls::{ConfigBuilderExt, HttpsConnector};
 use hyper_util::{client::legacy::connect::HttpConnector, rt::TokioExecutor};
 use reqwest::{Certificate, Identity, StatusCode, Url};
 use rustls::pki_types::pem::PemObject;
@@ -65,40 +65,27 @@ pub struct LapiClient {
 
 impl LapiClient {
     pub fn new(url: Url, certs: Option<CertAuthRustls>, apikey: String) -> Self {
-        /* let builder = Client::builder();
-        let client = if let Some(certs) = certs {
-            builder
-                .use_rustls_tls()
-                .identity(certs.identity)
-                .add_root_certificate(certs.root_ca)
-                .build()
-        } else {
-            builder.build()
-        } */
-        let client = if let Some(certs) = certs {
+        let tls_config = if let Some(certs) = certs {
             let mut cert_store = RootCertStore::empty();
             cert_store.add(certs.root_ca).unwrap();
-            let client_config = ClientConfig::builder()
+            ClientConfig::builder()
                 .with_root_certificates(cert_store)
                 .with_client_auth_cert(vec![certs.client_cert], certs.client_key.clone_key())
-                .unwrap();
-
-            hyper_util::client::legacy::Client::<(), ()>::builder(TokioExecutor::new()).build(
-                HttpsConnector::<HttpConnector>::builder()
-                    .with_tls_config(client_config)
-                    .https_or_http()
-                    .enable_http2()
-                    .build(),
-            )
+                .unwrap()
         } else {
-            hyper_util::client::legacy::Client::<(), ()>::builder(TokioExecutor::new()).build(
-                HttpsConnector::<HttpConnector>::builder()
-                    .with_webpki_roots()
-                    .https_or_http()
-                    .enable_http2()
-                    .build(),
-            )
+            ClientConfig::builder()
+                .with_webpki_roots()
+                .with_no_client_auth()
         };
+
+        let connector = HttpsConnector::<HttpConnector>::builder()
+            .with_tls_config(tls_config)
+            .https_or_http()
+            .enable_http2()
+            .build();
+
+        let client = hyper_util::client::legacy::Client::<(), ()>::builder(TokioExecutor::new())
+            .build(connector);
 
         Self {
             client,
