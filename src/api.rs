@@ -96,8 +96,14 @@ async fn check_ip(
     }
 }
 
+async fn health() -> impl IntoResponse {
+    StatusCode::OK.into_response()
+}
+
 fn api_server_router(state: AppState) -> Router {
-    let v1 = Router::new().route("/ip-info", get(ip_info));
+    let v1 = Router::new()
+        .route("/ip-info", get(ip_info))
+        .route("/health", get(health));
 
     let api = Router::new().nest("/v1", v1);
 
