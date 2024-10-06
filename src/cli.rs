@@ -4,7 +4,6 @@ use clap::{Args, Parser};
 use ipnet::IpNet;
 use reqwest::Url;
 
-use crate::crowdsec::CrowdsecAuth;
 use crate::utils::read_file;
 
 #[derive(Parser, Debug)]
@@ -58,6 +57,7 @@ pub struct CertAuth {
     pub crowdsec_client_key: PathBuf,
 }
 
+#[allow(dead_code)]
 impl CertAuth {
     fn exists(&self) -> bool {
         self.crowdsec_client_key.exists()
@@ -82,18 +82,3 @@ impl TryFrom<CertAuth> for ClientCerts {
         })
     }
 }
-
-/* impl TryFrom<Auth> for CrowdsecAuth {
-    type Error = anyhow::Error;
-    fn try_from(value: Auth) -> Result<Self, Self::Error> {
-        if let Some(apikey) = value.crowdsec_apikey {
-            Ok(Self::Apikey(apikey))
-        } else if value.cert_auth.exists() {
-            let certs = ClientCerts::try_from(value.cert_auth)?;
-            Ok(Self::Certs(TryFrom::try_from(certs)?))
-        } else {
-            Err(anyhow::anyhow!("No authentication provided for crowdsec!"))
-        }
-    }
-}
- */

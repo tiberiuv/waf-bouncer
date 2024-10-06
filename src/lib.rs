@@ -1,13 +1,12 @@
 use ipnet::IpNet;
 
-mod blacklist;
 mod crowdsec;
 mod utils;
 
 pub mod api;
 pub mod cli;
 pub mod trace_sub;
-pub use crowdsec::{CrowdsecLapi, LapiClient, CertAuthReqwest, CertAuthRustls};
+pub use crowdsec::{CertAuthReqwest, CertAuthRustls, CrowdsecLapi, LapiClient};
 
 pub const USER_AGENT: &str = "waf-bouncer/v0.0.1";
 

@@ -14,11 +14,13 @@ pub fn read_file(path: &Path) -> Result<Vec<u8>, io::Error> {
     Ok(buf)
 }
 
+#[allow(dead_code)]
 fn exponential_backoff(retries: u64, cap: u64) -> Duration {
     let jitter = random::<u64>() * 5;
     Duration::from_millis(u64::min(cap, ((2 ^ retries) * 25) + jitter))
 }
 
+#[allow(dead_code)]
 pub async fn retry_op<Fut, T, E, F>(retries: u64, f: F) -> Result<T, E>
 where
     E: std::fmt::Debug,
@@ -42,4 +44,3 @@ where
         }
     }
 }
-
