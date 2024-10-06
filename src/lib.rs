@@ -1,6 +1,5 @@
 use ipnet::IpNet;
 
-mod blacklist;
 mod crowdsec;
 mod utils;
 

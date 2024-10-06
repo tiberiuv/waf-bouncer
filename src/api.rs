@@ -4,7 +4,7 @@ use crate::crowdsec::CrowdsecLapi;
 use axum::extract::{ConnectInfo, Request, State};
 use axum::http::HeaderValue;
 use axum::response::IntoResponse;
-use axum::routing::{get, post, MethodRouter};
+use axum::routing::{get, MethodRouter};
 use axum::{Json, Router};
 use ipnet::IpNet;
 use reqwest::StatusCode;
@@ -92,7 +92,7 @@ async fn check_ip(
             StatusCode::FORBIDDEN
         }
         .into_response(),
-        Err(err) => StatusCode::FORBIDDEN.into_response(),
+        Err(_err) => StatusCode::FORBIDDEN.into_response(),
     }
 }
 
