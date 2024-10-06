@@ -1,5 +1,4 @@
 use std::net::IpAddr;
-use std::str::FromStr;
 
 use anyhow::anyhow;
 use axum::body::{Body, HttpBody};
@@ -94,12 +93,17 @@ impl LapiClient {
         }
     }
 }
-pub const X_CROWDSEC_APPSEC_IP_HEADER: &str = "X-Crowdsec-Appsec-Ip";
-pub const X_CROWDSEC_APPSEC_URI_HEADER: &str = "X-Crowdsec-Appsec-Uri";
-pub const X_CROWDSEC_APPSEC_HOST_HEADER: &str = "X-Crowdsec-Appsec-Host";
-pub const X_CROWDSEC_APPSEC_VERB_HEADER: &str = "X-Crowdsec-Appsec-Verb";
-pub const X_CROWDSEC_APPSEC_API_KEY_HEADER: &str = "X-Crowdsec-Appsec-Api-Key";
-pub const X_CROWDSEC_APPSEC_USER_AGENT_HEADER: &str = "X-Crowdsec-Appsec-User-Agent";
+pub const X_CROWDSEC_APPSEC_IP_HEADER: HeaderName = HeaderName::from_static("x-crowdsec-appsec-ip");
+pub const X_CROWDSEC_APPSEC_URI_HEADER: HeaderName =
+    HeaderName::from_static("x-crowdsec-appsec-uri");
+pub const X_CROWDSEC_APPSEC_HOST_HEADER: HeaderName =
+    HeaderName::from_static("x-crowdsec-appsec-host");
+pub const X_CROWDSEC_APPSEC_VERB_HEADER: HeaderName =
+    HeaderName::from_static("x-crowdsec-appsec-verb");
+pub const X_CROWDSEC_APPSEC_API_KEY_HEADER: HeaderName =
+    HeaderName::from_static("x-crowdsec-appsec-api-key");
+pub const X_CROWDSEC_APPSEC_USER_AGENT_HEADER: HeaderName =
+    HeaderName::from_static("x-crowdsec-appsec-user-agent");
 
 #[allow(async_fn_in_trait)]
 pub trait CrowdsecLapi {
@@ -134,27 +138,27 @@ impl CrowdsecLapi for LapiClient {
 
         let headers = HeaderMap::from_iter([
             (
-                HeaderName::from_str(X_CROWDSEC_APPSEC_IP_HEADER).unwrap(),
+                X_CROWDSEC_APPSEC_IP_HEADER,
                 HeaderValue::from_str(&real_client_ip.to_string())?,
             ),
             (
-                HeaderName::from_str(X_CROWDSEC_APPSEC_API_KEY_HEADER).unwrap(),
+                X_CROWDSEC_APPSEC_API_KEY_HEADER,
                 HeaderValue::from_str(&self.apikey)?,
             ),
             (
-                HeaderName::from_str(X_CROWDSEC_APPSEC_HOST_HEADER).unwrap(),
+                X_CROWDSEC_APPSEC_HOST_HEADER,
                 HeaderValue::from_str(host_header)?,
             ),
             (
-                HeaderName::from_str(X_CROWDSEC_APPSEC_VERB_HEADER).unwrap(),
+                X_CROWDSEC_APPSEC_VERB_HEADER,
                 HeaderValue::from_str(request.method().as_ref())?,
             ),
             (
-                HeaderName::from_str(X_CROWDSEC_APPSEC_URI_HEADER).unwrap(),
+                X_CROWDSEC_APPSEC_URI_HEADER,
                 HeaderValue::from_str(&request.uri().to_string())?,
             ),
             (
-                HeaderName::from_str(X_CROWDSEC_APPSEC_USER_AGENT_HEADER).unwrap(),
+                X_CROWDSEC_APPSEC_USER_AGENT_HEADER,
                 HeaderValue::from_str(user_agent_header)?,
             ),
             (
