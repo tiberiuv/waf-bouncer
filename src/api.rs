@@ -121,7 +121,16 @@ fn api_server_router(state: AppState) -> Router {
                 .head(check_ip),
         )
         .with_state(state)
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
+                tracing::info_span!(
+                    "http_request",
+                    method = ?request.method(),
+                    uri = ?request.uri(),
+                    some_other_field = tracing::field::Empty,
+                )
+            }),
+        )
 }
 
 pub async fn api_server_listen(state: AppState, socket_addr: SocketAddr) -> std::io::Result<()> {

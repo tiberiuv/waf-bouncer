@@ -131,6 +131,7 @@ impl CrowdsecLapi for LapiClient {
         } else {
             reqwest::Method::POST
         };
+
         let headers = HeaderMap::from_iter([
             (
                 HeaderName::from_str(X_CROWDSEC_APPSEC_IP_HEADER).unwrap(),
@@ -168,6 +169,8 @@ impl CrowdsecLapi for LapiClient {
         mut_headers.extend(headers);
 
         let response = self.client.request(request).await?;
-        Ok(response.status() == StatusCode::OK)
+        let is_ok = response.status() == StatusCode::OK;
+        tracing::info!(status = ?response.status(), "appsec request");
+        Ok(is_ok)
     }
 }
