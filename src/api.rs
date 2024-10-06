@@ -112,13 +112,13 @@ fn api_server_router(state: AppState) -> Router {
         .fallback(
             MethodRouter::new()
                 .get(check_ip)
+                .head(check_ip)
+                .delete(check_ip)
+                .options(check_ip)
+                .patch(check_ip)
                 .post(check_ip)
                 .put(check_ip)
-                .trace(check_ip)
-                .delete(check_ip)
-                .patch(check_ip)
-                .options(check_ip)
-                .head(check_ip),
+                .trace(check_ip),
         )
         .with_state(state)
         .layer(

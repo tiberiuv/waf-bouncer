@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use clap::{Args, Parser};
@@ -9,6 +10,9 @@ use crate::utils::read_file;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
+    #[arg(long, default_value = "127.0.0.1:3000")]
+    pub listen_addr: SocketAddr,
+
     #[arg(long, env, num_args = 1..)]
     pub trusted_proxies: Option<Vec<IpNet>>,
 

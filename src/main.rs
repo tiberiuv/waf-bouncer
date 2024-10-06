@@ -26,6 +26,5 @@ async fn main() -> anyhow::Result<()> {
         ),
     };
 
-    let url = "127.0.0.1:3000";
-    Ok(api_server_listen(state, url.parse().unwrap()).await?)
+    Ok(api_server_listen(state, cli.listen_addr).await?)
 }
