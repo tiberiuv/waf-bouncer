@@ -189,7 +189,14 @@ impl CrowdsecLapi for LapiClient {
 
         let response = self.client.request(request).await?;
         let is_ok = response.status() == StatusCode::OK;
-        tracing::info!(status = ?response.status(), "appsec request");
+        tracing::info!(
+            status = ?response.status(),
+            original_uri = forwarded_uri,
+            original_method = forwarded_method,
+            original_host = forwarded_host,
+            original_ip = real_client_ip.to_string(),
+            "appsec request"
+        );
         Ok(is_ok)
     }
 }
