@@ -6,7 +6,7 @@ use axum::extract::Request;
 use axum::http::{HeaderMap, HeaderName, HeaderValue, Uri};
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector};
 use hyper_util::{client::legacy::connect::HttpConnector, rt::TokioExecutor};
-use reqwest::{Certificate, Identity, StatusCode, Url};
+use reqwest::{header, Certificate, Identity, StatusCode, Url};
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::{ClientConfig, RootCertStore};
@@ -104,6 +104,9 @@ pub const X_CROWDSEC_APPSEC_API_KEY_HEADER: HeaderName =
     HeaderName::from_static("x-crowdsec-appsec-api-key");
 pub const X_CROWDSEC_APPSEC_USER_AGENT_HEADER: HeaderName =
     HeaderName::from_static("x-crowdsec-appsec-user-agent");
+pub const X_FORWARDED_METHOD: HeaderName = HeaderName::from_static("x-forwarded-method");
+pub const X_FORWARDED_HOST: HeaderName = HeaderName::from_static("x-forwarded-host");
+pub const X_FORWARDED_URI: HeaderName = HeaderName::from_static("x-forwarded-uri");
 
 #[allow(async_fn_in_trait)]
 pub trait CrowdsecLapi {
@@ -120,36 +123,32 @@ impl CrowdsecLapi for LapiClient {
         mut request: Request,
         real_client_ip: IpAddr,
     ) -> anyhow::Result<bool> {
-        let host_header = request
+        let forwarded_host = request
             .headers()
-            .get("Host")
-            .and_then(|x| x.to_str().ok())
-            .unwrap_or_default();
+            .get(X_FORWARDED_HOST)
+            .and_then(|x| x.to_str().ok().map(|x| x.to_string()))
+            .unwrap_or_else(|| {
+                request
+                    .headers()
+                    .get(header::HOST)
+                    .and_then(|x| x.to_str().ok().map(|x| x.to_string()))
+                    .unwrap_or_default()
+            });
         let user_agent_header = request
             .headers()
-            .get("User-Agent")
+            .get(header::USER_AGENT)
             .and_then(|x| x.to_str().ok())
             .unwrap_or_default();
         let forwarded_uri = request
             .headers()
-            .get("x-forwarded-uri")
+            .get(X_FORWARDED_URI)
             .and_then(|x| x.to_str().ok().map(|x| x.to_string()))
             .unwrap_or(request.uri().to_string());
         let forwarded_method = request
             .headers()
-            .get("x-forwarded-method")
+            .get(X_FORWARDED_METHOD)
             .and_then(|x| x.to_str().ok().map(|x| x.to_string()))
             .unwrap_or(request.method().to_string());
-        let forwarded_host = request
-            .headers()
-            .get("x-forwarded-host")
-            .and_then(|x| x.to_str().ok().map(|x| x.to_string()))
-            .unwrap_or(host_header.to_string());
-        let method = if request.body().is_end_stream() {
-            reqwest::Method::GET
-        } else {
-            reqwest::Method::POST
-        };
 
         let headers = HeaderMap::from_iter([
             (
@@ -182,10 +181,15 @@ impl CrowdsecLapi for LapiClient {
             ),
         ]);
 
-        *request.uri_mut() = Uri::try_from(self.url.to_string())?;
-        *request.method_mut() = method;
         let mut_headers = request.headers_mut();
         mut_headers.extend(headers);
+
+        *request.uri_mut() = Uri::try_from(self.url.to_string())?;
+        *request.method_mut() = if request.body().is_end_stream() {
+            reqwest::Method::GET
+        } else {
+            reqwest::Method::POST
+        };
 
         let response = self.client.request(request).await?;
         let is_ok = response.status() == StatusCode::OK;
