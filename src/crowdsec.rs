@@ -130,6 +130,21 @@ impl CrowdsecLapi for LapiClient {
             .get("User-Agent")
             .and_then(|x| x.to_str().ok())
             .unwrap_or_default();
+        let forwarded_uri = request
+            .headers()
+            .get("x-forwarded-uri")
+            .and_then(|x| x.to_str().ok().map(|x| x.to_string()))
+            .unwrap_or(request.uri().to_string());
+        let forwarded_method = request
+            .headers()
+            .get("x-forwarded-method")
+            .and_then(|x| x.to_str().ok().map(|x| x.to_string()))
+            .unwrap_or(request.method().to_string());
+        let forwarded_host = request
+            .headers()
+            .get("x-forwarded-host")
+            .and_then(|x| x.to_str().ok().map(|x| x.to_string()))
+            .unwrap_or(host_header.to_string());
         let method = if request.body().is_end_stream() {
             reqwest::Method::GET
         } else {
@@ -147,15 +162,15 @@ impl CrowdsecLapi for LapiClient {
             ),
             (
                 X_CROWDSEC_APPSEC_HOST_HEADER,
-                HeaderValue::from_str(host_header)?,
+                HeaderValue::from_str(&forwarded_host)?,
             ),
             (
                 X_CROWDSEC_APPSEC_VERB_HEADER,
-                HeaderValue::from_str(request.method().as_ref())?,
+                HeaderValue::from_str(&forwarded_method)?,
             ),
             (
                 X_CROWDSEC_APPSEC_URI_HEADER,
-                HeaderValue::from_str(&request.uri().to_string())?,
+                HeaderValue::from_str(&forwarded_uri)?,
             ),
             (
                 X_CROWDSEC_APPSEC_USER_AGENT_HEADER,
