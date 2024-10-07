@@ -75,6 +75,18 @@ async fn check_ip(
 
     let x_forwarded_for = headers.get("X-Forwarded-For");
 
+    let is_trusted_proxy = app_state
+        .config
+        .trusted_proxies
+        .iter()
+        .any(|x| x.contains(&remote_client_ip));
+    if !is_trusted_proxy {
+        tracing::error!(
+            ?remote_client_ip,
+            "Received request from untrusted ip rejecting...",
+        );
+        return StatusCode::FORBIDDEN.into_response();
+    }
     let real_client_ip = get_client_ip_x_forwarded_for(
         app_state.config.trusted_proxies,
         x_forwarded_for,
