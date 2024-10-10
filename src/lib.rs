@@ -6,7 +6,7 @@ mod utils;
 pub mod api;
 pub mod cli;
 pub mod trace_sub;
-pub use crowdsec::{CertAuthReqwest, CertAuthRustls, CrowdsecLapi, LapiClient};
+pub use crowdsec::{AppsecClient, CertAuthRustls, CrowdsecAppsecApi};
 
 pub const USER_AGENT: &str = "waf-bouncer/v0.0.1";
 
@@ -18,5 +18,5 @@ pub struct Config {
 #[derive(Clone)]
 pub struct AppState {
     pub config: Config,
-    pub lapi_client: LapiClient,
+    pub appsec_client: AppsecClient,
 }
