@@ -1,6 +1,6 @@
 use std::net::{IpAddr, SocketAddr};
 
-use crate::crowdsec::CrowdsecLapi;
+use crate::crowdsec::CrowdsecAppsecApi;
 use axum::extract::{ConnectInfo, Request, State};
 use axum::http::HeaderValue;
 use axum::response::IntoResponse;
@@ -94,7 +94,7 @@ async fn check_ip(
     );
 
     let result = app_state
-        .lapi_client
+        .appsec_client
         .appsec_request(request, real_client_ip)
         .await;
     match result {
