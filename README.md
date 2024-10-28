@@ -2,7 +2,7 @@
 
 Web application firewall using the appsec component from crowdsec.
 
-It's meant to be used in front of an ingress/reverse proxy. The bouncer expects requests to be forwarded from the ingress and it will in turn forward requests to the crowdsec appsec component. The appsec component will make a decisions based on appsec rules and respond to the bouncer.
+It's meant to be used together with an ingress/reverse proxy such as traefik. The bouncer expects requests to be forwarded from the ingress and it will in turn forward requests to the crowdsec appsec component. The appsec component will make a decisions based on appsec rules and respond to the bouncer.
 
 For traefik it can be used with [forwardauth](https://doc.traefik.io/traefik/middlewares/http/forwardauth)
 
