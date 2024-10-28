@@ -4,9 +4,10 @@ Web application firewall using the appsec component from crowdsec.
 
 It's meant to be used in front of an ingress/reverse proxy. The bouncer expects requests to be forwarded from the ingress and it will in turn forward requests to the crowdsec appsec component. The appsec component will make a decisions based on appsec rules and respond to the bouncer.
 
-Example usage
-* [Traefik](https://doc.traefik.io/traefik/middlewares/http/forwardauth)
+For traefik it can be used with [forwardauth](https://doc.traefik.io/traefik/middlewares/http/forwardauth)
 
+### Real client IP
+The real client IP will be retrieved from `x-forwarded-for`. From right to left it will pick the first IPs that is not part of `TRUSTED_PROXIES` 
 ### Important
 The bouncer will reject all requests with 403 (forbidden) coming from an untrusted IP.
 
