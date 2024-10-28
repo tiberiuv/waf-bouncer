@@ -149,6 +149,16 @@ impl CrowdsecAppsecApi for AppsecClient {
             original_ip = real_client_ip.to_string(),
             "appsec query"
         );
+        if !is_ok {
+            tracing::info!(
+                status = ?response.status(),
+                original_uri = forwarded_uri,
+                original_method = forwarded_method,
+                original_host = forwarded_host,
+                original_ip = real_client_ip.to_string(),
+                "appsec query forbidden"
+            );
+        }
         Ok(is_ok)
     }
 }
