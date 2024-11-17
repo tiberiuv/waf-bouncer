@@ -11,6 +11,3 @@ pub const X_CROWDSEC_APPSEC_API_KEY_HEADER: HeaderName =
     HeaderName::from_static("x-crowdsec-appsec-api-key");
 pub const X_CROWDSEC_APPSEC_USER_AGENT_HEADER: HeaderName =
     HeaderName::from_static("x-crowdsec-appsec-user-agent");
-pub const X_FORWARDED_METHOD: HeaderName = HeaderName::from_static("x-forwarded-method");
-pub const X_FORWARDED_HOST: HeaderName = HeaderName::from_static("x-forwarded-host");
-pub const X_FORWARDED_URI: HeaderName = HeaderName::from_static("x-forwarded-uri");

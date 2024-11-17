@@ -18,6 +18,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState {
         config: Config {
             trusted_proxies: cli.trusted_proxies.unwrap_or_default(),
+            proxy_headers: cli.proxy_request_headers,
         },
         appsec_client: AppsecClient::new(
             cli.crowdsec_api,
