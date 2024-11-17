@@ -95,7 +95,7 @@ async fn check_ip(
 
     let result = app_state
         .appsec_client
-        .appsec_request(request, real_client_ip)
+        .appsec_request(request, real_client_ip, app_state.config.proxy_headers)
         .await;
     match result {
         Ok(is_ok) => if is_ok {

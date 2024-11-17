@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
+use axum::http::HeaderName;
 use clap::{Args, Parser};
 use ipnet::IpNet;
 use reqwest::Url;
@@ -24,6 +25,23 @@ pub struct Cli {
 
     #[command(flatten)]
     pub auth: Auth,
+
+    #[command(flatten)]
+    pub proxy_request_headers: ProxyRequestHeaders,
+}
+
+#[derive(Debug, Clone, Args)]
+#[group(required = false, multiple = true)]
+pub struct ProxyRequestHeaders {
+    #[arg(env = "PROXY_REQUEST_HEADER_URI", default_value = "x-forwarded-uri")]
+    pub uri: HeaderName,
+    #[arg(
+        env = "PROXY_REQUEST_HEADER_METHOD",
+        default_value = "x-forwarded-method"
+    )]
+    pub method: HeaderName,
+    #[arg(env = "PROXY_REQUEST_HEADER_HOST", default_value = "x-forwarded-host")]
+    pub host: HeaderName,
 }
 
 #[derive(Debug, Clone, Args)]

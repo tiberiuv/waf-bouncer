@@ -11,9 +11,10 @@ use rustls::{ClientConfig, RootCertStore};
 use super::headers::{
     X_CROWDSEC_APPSEC_API_KEY_HEADER, X_CROWDSEC_APPSEC_HOST_HEADER, X_CROWDSEC_APPSEC_IP_HEADER,
     X_CROWDSEC_APPSEC_URI_HEADER, X_CROWDSEC_APPSEC_USER_AGENT_HEADER,
-    X_CROWDSEC_APPSEC_VERB_HEADER, X_FORWARDED_HOST, X_FORWARDED_METHOD, X_FORWARDED_URI,
+    X_CROWDSEC_APPSEC_VERB_HEADER,
 };
 use super::CertAuthRustls;
+use crate::cli::ProxyRequestHeaders;
 use crate::USER_AGENT;
 
 type Client = hyper_util::client::legacy::Client<HttpsConnector<HttpConnector>, Body>;
@@ -62,6 +63,7 @@ pub trait CrowdsecAppsecApi {
         &self,
         request: Request,
         real_client_ip: IpAddr,
+        proxy_headers_config: ProxyRequestHeaders,
     ) -> anyhow::Result<bool>;
 }
 
@@ -70,10 +72,11 @@ impl CrowdsecAppsecApi for AppsecClient {
         &self,
         mut request: Request,
         real_client_ip: IpAddr,
+        proxy_request_headers_config: ProxyRequestHeaders,
     ) -> anyhow::Result<bool> {
         let forwarded_host = request
             .headers()
-            .get(X_FORWARDED_HOST)
+            .get(proxy_request_headers_config.host)
             .and_then(|x| x.to_str().ok().map(|x| x.to_string()))
             .unwrap_or_else(|| {
                 request
@@ -89,12 +92,12 @@ impl CrowdsecAppsecApi for AppsecClient {
             .unwrap_or_default();
         let forwarded_uri = request
             .headers()
-            .get(X_FORWARDED_URI)
+            .get(proxy_request_headers_config.uri)
             .and_then(|x| x.to_str().ok().map(|x| x.to_string()))
             .unwrap_or(request.uri().to_string());
         let forwarded_method = request
             .headers()
-            .get(X_FORWARDED_METHOD)
+            .get(proxy_request_headers_config.method)
             .and_then(|x| x.to_str().ok().map(|x| x.to_string()))
             .unwrap_or(request.method().to_string());
 
