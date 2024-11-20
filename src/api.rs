@@ -126,9 +126,11 @@ async fn health() -> impl IntoResponse {
 fn api_server_router(state: AppState) -> Router {
     let v1 = Router::new()
         .route("/ip-info", get(ip_info))
+        .route("/waf", get(check_ip))
         .route("/health", get(health));
 
     let api = Router::new().nest("/v1", v1);
+    let proxy_headers = state.config.proxy_headers.clone();
 
     Router::new()
         .nest("/api", api)
@@ -145,13 +147,30 @@ fn api_server_router(state: AppState) -> Router {
         )
         .with_state(state)
         .layer(
-            TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
-                tracing::info_span!(
-                    "http_request",
-                    method = ?request.method(),
-                    uri = ?request.uri(),
-                    some_other_field = tracing::field::Empty,
-                )
+            TraceLayer::new_for_http().make_span_with(move |request: &Request<_>| {
+                let headers = request.headers();
+                let proxy_uri = headers.get(&proxy_headers.uri);
+                let proxy_method = headers.get(&proxy_headers.method);
+                let proxy_host = headers.get(&proxy_headers.host);
+                let uri = request.uri();
+
+                if uri == "/" || uri == "/api/v1/waf" {
+                    tracing::info_span!(
+                        "proxy_request",
+                        uri = ?request.uri(),
+                        proxy_uri = ?proxy_uri,
+                        proxy_method = ?proxy_method,
+                        proxy_host = ?proxy_host,
+                    )
+                } else {
+                    tracing::info_span!(
+                        "http_request",
+                        uri = ?request.uri(),
+                        proxy_uri = ?proxy_uri,
+                        proxy_method = ?proxy_method,
+                        proxy_host = ?proxy_host,
+                    )
+                }
             }),
         )
 }
