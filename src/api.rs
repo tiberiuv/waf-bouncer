@@ -87,11 +87,22 @@ async fn check_ip(
         );
         return StatusCode::FORBIDDEN.into_response();
     }
+
     let real_client_ip = get_client_ip_x_forwarded_for(
         app_state.config.trusted_proxies,
         x_forwarded_for,
         remote_client_ip,
     );
+    let is_trusted_network = app_state
+        .config
+        .trusted_networks
+        .iter()
+        .any(|x| x.contains(&real_client_ip));
+
+    if is_trusted_network {
+        tracing::debug!(?real_client_ip, "Ip is trusted, skipping appsec",);
+        return StatusCode::OK.into_response();
+    }
 
     let result = app_state
         .appsec_client
