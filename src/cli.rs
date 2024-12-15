@@ -17,6 +17,9 @@ pub struct Cli {
     #[arg(long, env, num_args = 1..)]
     pub trusted_proxies: Option<Vec<IpNet>>,
 
+    #[arg(long, env, num_args = 1..)]
+    pub trusted_networks: Option<Vec<IpNet>>,
+
     #[arg(long, env = "CROWDSEC_TIMEOUT", default_value = "10")]
     pub crowdsec_timeout: u64,
 
