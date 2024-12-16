@@ -1,5 +1,6 @@
 use clap::Parser;
 use rustls::crypto::CryptoProvider;
+use tracing::info;
 use waf_bouncer::api::api_server_listen;
 use waf_bouncer::cli::ClientCerts;
 use waf_bouncer::trace_sub::{get_subscriber, init_subscriber};
@@ -27,6 +28,7 @@ async fn main() -> anyhow::Result<()> {
             cli.auth.crowdsec_apikey.unwrap_or_default(),
         ),
     };
+    info!(?state.config, "config");
 
     Ok(api_server_listen(state, cli.listen_addr).await?)
 }

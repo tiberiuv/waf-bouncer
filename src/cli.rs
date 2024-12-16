@@ -14,10 +14,10 @@ pub struct Cli {
     #[arg(long, env, default_value = "127.0.0.1:3000")]
     pub listen_addr: SocketAddr,
 
-    #[arg(long, env, num_args = 1..)]
+    #[arg(long, env, value_delimiter = ',', num_args = 1..)]
     pub trusted_proxies: Option<Vec<IpNet>>,
 
-    #[arg(long, env, num_args = 1..)]
+    #[arg(long, env, value_delimiter = ',', num_args = 1..)]
     pub trusted_networks: Option<Vec<IpNet>>,
 
     #[arg(long, env = "CROWDSEC_TIMEOUT", default_value = "10")]
