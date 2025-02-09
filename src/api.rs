@@ -172,7 +172,7 @@ fn api_server_router(state: AppState) -> Router {
                             proxy_host = ?proxy_host,
                         )
                     }
-                    "/health" => tracing::Span::none(),
+                    "/api/v1/health" => tracing::Span::none(),
                     _ => {
                         tracing::info_span!(
                             "http_request",
