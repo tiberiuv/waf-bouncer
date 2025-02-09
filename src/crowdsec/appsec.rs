@@ -5,7 +5,7 @@ use axum::extract::Request;
 use axum::http::{HeaderMap, HeaderValue, Uri};
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector};
 use hyper_util::{client::legacy::connect::HttpConnector, rt::TokioExecutor};
-use reqwest::{header, StatusCode, Url};
+use reqwest::{header, Url};
 use rustls::{ClientConfig, RootCertStore};
 
 use super::headers::{
@@ -143,7 +143,7 @@ impl CrowdsecAppsecApi for AppsecClient {
         };
 
         let response = self.client.request(request).await?;
-        let is_ok = response.status() == StatusCode::OK;
+        let is_ok = response.status() == reqwest::StatusCode::OK;
         tracing::debug!(
             status = ?response.status(),
             original_uri = forwarded_uri,

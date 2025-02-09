@@ -1,18 +1,62 @@
 use std::net::{IpAddr, SocketAddr};
 
 use crate::crowdsec::CrowdsecAppsecApi;
-use axum::extract::{ConnectInfo, Request, State};
+use axum::extract::{ConnectInfo, FromRef, FromRequestParts, Request, State};
+use axum::http::request::Parts;
 use axum::http::HeaderValue;
 use axum::response::IntoResponse;
 use axum::routing::{get, MethodRouter};
-use axum::{Json, Router};
+use axum::{async_trait, Json, RequestPartsExt, Router};
 use ipnet::IpNet;
 use reqwest::StatusCode;
 use tower_http::trace::TraceLayer;
 
 use crate::AppState;
 
-fn get_client_ip_x_forwarded_for(
+pub struct ExtractRealIp(IpAddr);
+
+#[async_trait]
+impl<S> FromRequestParts<S> for ExtractRealIp
+where
+    AppState: FromRef<S>,
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, &'static str);
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let app_state = AppState::from_ref(state);
+        let addr = parts
+            .extract::<ConnectInfo<SocketAddr>>()
+            .await
+            .map_err(|_err| (StatusCode::BAD_REQUEST, "Invalid"))?;
+        let headers = &parts.headers;
+        let remote_client_ip = addr.ip();
+
+        let x_forwarded_for = headers.get("X-Forwarded-For");
+
+        let is_trusted_proxy = app_state
+            .config
+            .trusted_proxies
+            .iter()
+            .any(|x| x.contains(&remote_client_ip));
+        if !is_trusted_proxy {
+            tracing::error!(
+                ?remote_client_ip,
+                "Received request from untrusted ip rejecting...",
+            );
+            return Err((StatusCode::FORBIDDEN, "Forbidden"));
+        }
+
+        let real_client_ip = get_client_ip_x_forwarded_for(
+            app_state.config.trusted_proxies,
+            x_forwarded_for,
+            remote_client_ip,
+        );
+        Ok(ExtractRealIp(real_client_ip))
+    }
+}
+
+pub fn get_client_ip_x_forwarded_for(
     trusted_proxies: Vec<IpNet>,
     x_forwarded_for_header: Option<&HeaderValue>,
     remote_client_ip: IpAddr,
@@ -44,55 +88,20 @@ pub struct DebugResponse {
 }
 
 async fn ip_info(
-    State(app_state): State<AppState>,
+    ExtractRealIp(real_client_ip): ExtractRealIp,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    request: Request,
 ) -> impl IntoResponse {
-    let headers = request.headers();
-    let remote_client_ip = addr.ip();
-
-    let x_forwarded_for = headers.get("X-Forwarded-For");
-
-    let real_client_ip = get_client_ip_x_forwarded_for(
-        app_state.config.trusted_proxies,
-        x_forwarded_for,
-        remote_client_ip,
-    );
-
     Json(DebugResponse {
-        remote_client_ip,
+        remote_client_ip: addr.ip(),
         real_client_ip,
     })
 }
 
 async fn check_ip(
     State(app_state): State<AppState>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    ExtractRealIp(real_client_ip): ExtractRealIp,
     request: Request,
 ) -> impl IntoResponse {
-    let headers = request.headers();
-    let remote_client_ip = addr.ip();
-
-    let x_forwarded_for = headers.get("X-Forwarded-For");
-
-    let is_trusted_proxy = app_state
-        .config
-        .trusted_proxies
-        .iter()
-        .any(|x| x.contains(&remote_client_ip));
-    if !is_trusted_proxy {
-        tracing::error!(
-            ?remote_client_ip,
-            "Received request from untrusted ip rejecting...",
-        );
-        return StatusCode::FORBIDDEN.into_response();
-    }
-
-    let real_client_ip = get_client_ip_x_forwarded_for(
-        app_state.config.trusted_proxies,
-        x_forwarded_for,
-        remote_client_ip,
-    );
     let is_trusted_network = app_state
         .config
         .trusted_networks
@@ -145,7 +154,6 @@ fn api_server_router(state: AppState) -> Router {
                 .put(check_ip)
                 .trace(check_ip),
         )
-        .with_state(state)
         .layer(
             TraceLayer::new_for_http().make_span_with(move |request: &Request<_>| {
                 let headers = request.headers();
@@ -154,25 +162,30 @@ fn api_server_router(state: AppState) -> Router {
                 let proxy_host = headers.get(&proxy_headers.host);
                 let uri = request.uri();
 
-                if uri == "/" || uri == "/api/v1/waf" {
-                    tracing::info_span!(
-                        "proxy_request",
-                        uri = ?request.uri(),
-                        proxy_uri = ?proxy_uri,
-                        proxy_method = ?proxy_method,
-                        proxy_host = ?proxy_host,
-                    )
-                } else {
-                    tracing::info_span!(
-                        "http_request",
-                        uri = ?request.uri(),
-                        proxy_uri = ?proxy_uri,
-                        proxy_method = ?proxy_method,
-                        proxy_host = ?proxy_host,
-                    )
+                match uri.path() {
+                    "/" | "/api/v1/waf" => {
+                        tracing::info_span!(
+                            "proxy_request",
+                            uri = ?request.uri(),
+                            proxy_uri = ?proxy_uri,
+                            proxy_method = ?proxy_method,
+                            proxy_host = ?proxy_host,
+                        )
+                    }
+                    "/health" => tracing::Span::none(),
+                    _ => {
+                        tracing::info_span!(
+                            "http_request",
+                            uri = ?request.uri(),
+                            proxy_uri = ?proxy_uri,
+                            proxy_method = ?proxy_method,
+                            proxy_host = ?proxy_host,
+                        )
+                    }
                 }
             }),
         )
+        .with_state(state)
 }
 
 pub async fn api_server_listen(state: AppState, socket_addr: SocketAddr) -> std::io::Result<()> {
