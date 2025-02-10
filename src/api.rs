@@ -98,10 +98,14 @@ pub fn get_client_ip_x_forwarded_for(
         .and_then(parse_multi_ip_header)
         .and_then(|mut x_forwarded_headers_ips| {
             x_forwarded_headers_ips.push(remote_client_ip);
-            x_forwarded_headers_ips
-                .into_iter()
-                .rev()
-                .find(|ip| !trusted_proxies.iter().any(|proxy| proxy.contains(ip)))
+            let mut ips = x_forwarded_headers_ips.into_iter().rev().peekable();
+            while let Some(ip) = ips.next() {
+                let is_trusted = trusted_proxies.iter().any(|proxy| proxy.contains(&ip));
+                if !is_trusted || ips.peek().is_none() {
+                    return Some(ip);
+                }
+            }
+            None
         })
         .unwrap_or(remote_client_ip)
 }
@@ -173,7 +177,6 @@ fn api_server_router(state: AppState) -> Router {
         .route("/health", get(health));
 
     let api = Router::new().nest("/v1", v1);
-    let proxy_headers = state.config.proxy_headers.clone();
 
     Router::new()
         .nest("/api", api)
@@ -190,7 +193,6 @@ fn api_server_router(state: AppState) -> Router {
         )
         .layer(
             TraceLayer::new_for_http().make_span_with(move |request: &Request<_>| {
-                let headers = request.headers();
                 let uri = request.uri();
 
                 match uri.path() {
@@ -230,6 +232,14 @@ mod tests {
     #[test]
     fn get_real_ip() {
         let cases = [
+            (
+                (
+                    vec!["192.168.0.0/30".parse().unwrap()],
+                    Some(HeaderValue::from_str("192.168.0.1, 192.168.0.2").unwrap()),
+                    "192.168.0.2".parse().unwrap(),
+                ),
+                "192.168.0.1".parse::<IpAddr>().unwrap(),
+            ),
             (
                 (
                     vec![],
