@@ -6,7 +6,7 @@ use axum::http::request::Parts;
 use axum::http::HeaderValue;
 use axum::response::IntoResponse;
 use axum::routing::{get, MethodRouter};
-use axum::{async_trait, Json, RequestExt, RequestPartsExt, Router};
+use axum::{async_trait, Json, RequestPartsExt, Router};
 use ipnet::IpNet;
 use reqwest::StatusCode;
 use tower_http::trace::TraceLayer;
@@ -52,6 +52,7 @@ where
             x_forwarded_for,
             remote_client_ip,
         );
+        tracing::info!(?real_client_ip);
         Ok(ExtractRealIp(real_client_ip))
     }
 }
