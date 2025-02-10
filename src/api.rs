@@ -66,14 +66,10 @@ pub fn get_client_ip_x_forwarded_for(
         .and_then(parse_multi_ip_header)
         .and_then(|mut x_forwarded_headers_ips| {
             x_forwarded_headers_ips.push(remote_client_ip);
-            let mut rev_ips = x_forwarded_headers_ips.into_iter().rev().peekable();
-            while let Some(ip) = rev_ips.next() {
-                let trusted = trusted_proxies.iter().any(|proxy| proxy.contains(&ip));
-                if !trusted || rev_ips.peek().is_none() {
-                    return Some(ip);
-                }
-            }
-            None
+            x_forwarded_headers_ips
+                .into_iter()
+                .rev()
+                .find(|ip| !trusted_proxies.iter().any(|proxy| proxy.contains(ip)))
         })
         .unwrap_or(remote_client_ip)
 }
@@ -227,6 +223,14 @@ mod tests {
                     "127.0.0.2".parse().unwrap(),
                 ),
                 "127.0.0.2".parse::<IpAddr>().unwrap(),
+            ),
+            (
+                (
+                    vec!["192.168.0.0/30".parse().unwrap()],
+                    Some(HeaderValue::from_str("127.0.0.3").unwrap()),
+                    "192.168.0.3".parse().unwrap(),
+                ),
+                "127.0.0.3".parse::<IpAddr>().unwrap(),
             ),
             (
                 (
