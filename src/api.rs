@@ -6,7 +6,7 @@ use axum::http::request::Parts;
 use axum::http::HeaderValue;
 use axum::response::IntoResponse;
 use axum::routing::{get, MethodRouter};
-use axum::{async_trait, Json, RequestPartsExt, Router};
+use axum::{async_trait, Json, RequestExt, RequestPartsExt, Router};
 use ipnet::IpNet;
 use reqwest::StatusCode;
 use tower_http::trace::TraceLayer;
@@ -160,6 +160,7 @@ fn api_server_router(state: AppState) -> Router {
                 let proxy_uri = headers.get(&proxy_headers.uri);
                 let proxy_method = headers.get(&proxy_headers.method);
                 let proxy_host = headers.get(&proxy_headers.host);
+                let x_forwarded_for = headers.get("x-forwarded-for");
                 let uri = request.uri();
 
                 match uri.path() {
@@ -170,6 +171,7 @@ fn api_server_router(state: AppState) -> Router {
                             proxy_uri = ?proxy_uri,
                             proxy_method = ?proxy_method,
                             proxy_host = ?proxy_host,
+                            x_forwarded_for = ?x_forwarded_for,
                         )
                     }
                     "/api/v1/health" => tracing::Span::none(),
@@ -180,6 +182,7 @@ fn api_server_router(state: AppState) -> Router {
                             proxy_uri = ?proxy_uri,
                             proxy_method = ?proxy_method,
                             proxy_host = ?proxy_host,
+                            x_forwarded_for = ?x_forwarded_for,
                         )
                     }
                 }
