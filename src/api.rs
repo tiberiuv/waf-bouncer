@@ -64,7 +64,8 @@ pub fn get_client_ip_x_forwarded_for(
 ) -> IpAddr {
     x_forwarded_for_header
         .and_then(parse_multi_ip_header)
-        .and_then(|x_forwarded_headers_ips| {
+        .and_then(|mut x_forwarded_headers_ips| {
+            x_forwarded_headers_ips.push(remote_client_ip);
             let mut rev_ips = x_forwarded_headers_ips.into_iter().rev().peekable();
             while let Some(ip) = rev_ips.next() {
                 let trusted = trusted_proxies.iter().any(|proxy| proxy.contains(&ip));
@@ -221,7 +222,15 @@ mod tests {
         let cases = [
             (
                 (
-                    vec!["127.0.0.1/32".parse().unwrap()],
+                    vec![],
+                    Some(HeaderValue::from_str("127.0.0.3").unwrap()),
+                    "127.0.0.2".parse().unwrap(),
+                ),
+                "127.0.0.2".parse::<IpAddr>().unwrap(),
+            ),
+            (
+                (
+                    vec!["127.0.0.2/32".parse().unwrap()],
                     Some(HeaderValue::from_str("127.0.0.1").unwrap()),
                     "127.0.0.2".parse().unwrap(),
                 ),
@@ -231,7 +240,7 @@ mod tests {
                 (
                     vec!["127.0.0.1/32".parse().unwrap()],
                     Some(HeaderValue::from_str("127.0.0.3,127.0.0.1").unwrap()),
-                    "127.0.0.2".parse().unwrap(),
+                    "127.0.0.1".parse().unwrap(),
                 ),
                 "127.0.0.3".parse::<IpAddr>().unwrap(),
             ),
