@@ -25,6 +25,7 @@ where
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let app_state = AppState::from_ref(state);
+        let proxy_headers = app_state.config.proxy_headers;
         let addr = parts
             .extract::<ConnectInfo<SocketAddr>>()
             .await
@@ -52,7 +53,38 @@ where
             x_forwarded_for,
             remote_client_ip,
         );
-        tracing::info!(?real_client_ip);
+
+        let proxy_uri = headers
+            .get(&proxy_headers.uri)
+            .map(|x| x.to_str().unwrap_or_default())
+            .unwrap_or("");
+        let proxy_method = headers
+            .get(&proxy_headers.method)
+            .map(|x| x.to_str().unwrap_or_default())
+            .unwrap_or("");
+        let proxy_host = headers
+            .get(&proxy_headers.host)
+            .map(|x| x.to_str().unwrap_or_default())
+            .unwrap_or("");
+        let x_forwarded_for = headers
+            .get("x-forwarded-for")
+            .map(|x| x.to_str().unwrap_or_default())
+            .unwrap_or("");
+        let x_real_ip = headers
+            .get("x-real-ip")
+            .map(|x| x.to_str().unwrap_or_default())
+            .unwrap_or("");
+
+        tracing::info!(
+            real_client_ip = real_client_ip.to_string(),
+            remote_client_ip = remote_client_ip.to_string(),
+            proxy_uri,
+            proxy_method,
+            proxy_host,
+            x_forwarded_for,
+            x_real_ip,
+        );
+
         Ok(ExtractRealIp(real_client_ip))
     }
 }
@@ -159,33 +191,15 @@ fn api_server_router(state: AppState) -> Router {
         .layer(
             TraceLayer::new_for_http().make_span_with(move |request: &Request<_>| {
                 let headers = request.headers();
-                let proxy_uri = headers.get(&proxy_headers.uri);
-                let proxy_method = headers.get(&proxy_headers.method);
-                let proxy_host = headers.get(&proxy_headers.host);
-                let x_forwarded_for = headers.get("x-forwarded-for");
                 let uri = request.uri();
 
                 match uri.path() {
                     "/" | "/api/v1/waf" => {
-                        tracing::info_span!(
-                            "proxy_request",
-                            uri = ?request.uri(),
-                            proxy_uri = ?proxy_uri,
-                            proxy_method = ?proxy_method,
-                            proxy_host = ?proxy_host,
-                            x_forwarded_for = ?x_forwarded_for,
-                        )
+                        tracing::info_span!("proxy_request",)
                     }
                     "/api/v1/health" => tracing::Span::none(),
                     _ => {
-                        tracing::info_span!(
-                            "http_request",
-                            uri = ?request.uri(),
-                            proxy_uri = ?proxy_uri,
-                            proxy_method = ?proxy_method,
-                            proxy_host = ?proxy_host,
-                            x_forwarded_for = ?x_forwarded_for,
-                        )
+                        tracing::info_span!("http_request",)
                     }
                 }
             }),
