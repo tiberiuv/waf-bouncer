@@ -77,7 +77,7 @@ pub fn get_client_ip_x_forwarded_for(
 fn parse_multi_ip_header(header_value: &HeaderValue) -> Option<Vec<IpAddr>> {
     header_value.to_str().ok().and_then(|s| {
         s.split(',')
-            .map(|ip| ip.parse())
+            .map(|ip| ip.trim_ascii().parse())
             .collect::<Result<Vec<_>, _>>()
             .ok()
     })
@@ -254,7 +254,7 @@ mod tests {
                         "127.0.0.1/32".parse().unwrap(),
                         "127.0.0.2/32".parse().unwrap(),
                     ],
-                    Some(HeaderValue::from_str("127.0.0.3,127.0.0.2,127.0.0.1").unwrap()),
+                    Some(HeaderValue::from_str("127.0.0.3, 127.0.0.2, 127.0.0.1").unwrap()),
                     "127.0.0.2".parse().unwrap(),
                 ),
                 "127.0.0.3".parse::<IpAddr>().unwrap(),
