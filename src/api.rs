@@ -65,10 +65,14 @@ pub fn get_client_ip_x_forwarded_for(
     x_forwarded_for_header
         .and_then(parse_multi_ip_header)
         .and_then(|x_forwarded_headers_ips| {
-            x_forwarded_headers_ips
-                .into_iter()
-                .rev()
-                .find(|&ip| !trusted_proxies.iter().any(|proxy| proxy.contains(&ip)))
+            let mut rev_ips = x_forwarded_headers_ips.into_iter().rev().peekable();
+            while let Some(ip) = rev_ips.next() {
+                let trusted = trusted_proxies.iter().any(|proxy| proxy.contains(&ip));
+                if !trusted || rev_ips.peek().is_none() {
+                    return Some(ip);
+                }
+            }
+            None
         })
         .unwrap_or(remote_client_ip)
 }
@@ -202,4 +206,52 @@ pub async fn api_server_listen(state: AppState, socket_addr: SocketAddr) -> std:
         router.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::IpAddr;
+
+    use axum::http::HeaderValue;
+
+    use super::get_client_ip_x_forwarded_for;
+
+    #[test]
+    fn get_real_ip() {
+        let cases = [
+            (
+                (
+                    vec!["127.0.0.1/32".parse().unwrap()],
+                    Some(HeaderValue::from_str("127.0.0.1").unwrap()),
+                    "127.0.0.2".parse().unwrap(),
+                ),
+                "127.0.0.1".parse::<IpAddr>().unwrap(),
+            ),
+            (
+                (
+                    vec!["127.0.0.1/32".parse().unwrap()],
+                    Some(HeaderValue::from_str("127.0.0.3,127.0.0.1").unwrap()),
+                    "127.0.0.2".parse().unwrap(),
+                ),
+                "127.0.0.3".parse::<IpAddr>().unwrap(),
+            ),
+            (
+                (
+                    vec![
+                        "127.0.0.1/32".parse().unwrap(),
+                        "127.0.0.2/32".parse().unwrap(),
+                    ],
+                    Some(HeaderValue::from_str("127.0.0.3,127.0.0.2,127.0.0.1").unwrap()),
+                    "127.0.0.2".parse().unwrap(),
+                ),
+                "127.0.0.3".parse::<IpAddr>().unwrap(),
+            ),
+        ];
+
+        for (args, expected) in cases {
+            let actual = get_client_ip_x_forwarded_for(args.0, args.1.as_ref(), args.2);
+
+            assert_eq!(actual, expected);
+        }
+    }
 }
