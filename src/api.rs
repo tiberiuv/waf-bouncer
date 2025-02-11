@@ -226,62 +226,68 @@ mod tests {
     use std::net::IpAddr;
 
     use axum::http::HeaderValue;
+    use ipnet::IpNet;
 
     use super::get_client_ip_x_forwarded_for;
 
+    fn parse_ip(s: &str) -> IpAddr {
+        s.parse().unwrap()
+    }
+    fn parse_cidr(s: &str) -> IpNet {
+        s.parse().unwrap()
+    }
+    fn parse_cidrs<'a>(l: impl IntoIterator<Item = &'a str>) -> Vec<IpNet> {
+        l.into_iter().map(parse_cidr).collect()
+    }
+    fn parse_hv(s: &str) -> HeaderValue {
+        HeaderValue::from_str(s).unwrap()
+    }
     #[test]
     fn get_real_ip() {
         let cases = [
             (
                 (
-                    vec!["192.168.0.0/30".parse().unwrap()],
-                    Some(HeaderValue::from_str("192.168.0.1, 192.168.0.2").unwrap()),
-                    "192.168.0.2".parse().unwrap(),
+                    parse_cidrs(["192.168.0.0/30"]),
+                    Some(parse_hv("192.168.0.1, 192.168.0.2")),
+                    parse_ip("192.168.0.2"),
                 ),
-                "192.168.0.1".parse::<IpAddr>().unwrap(),
+                parse_ip("192.168.0.1"),
+            ),
+            (
+                (vec![], Some(parse_hv("127.0.0.3")), parse_ip("127.0.0.2")),
+                parse_ip("127.0.0.2"),
             ),
             (
                 (
-                    vec![],
-                    Some(HeaderValue::from_str("127.0.0.3").unwrap()),
-                    "127.0.0.2".parse().unwrap(),
+                    parse_cidrs(["192.168.0.0/30"]),
+                    Some(parse_hv("127.0.0.3")),
+                    parse_ip("192.168.0.3"),
                 ),
-                "127.0.0.2".parse::<IpAddr>().unwrap(),
+                parse_ip("127.0.0.3"),
             ),
             (
                 (
-                    vec!["192.168.0.0/30".parse().unwrap()],
-                    Some(HeaderValue::from_str("127.0.0.3").unwrap()),
-                    "192.168.0.3".parse().unwrap(),
+                    parse_cidrs(["127.0.0.2/32"]),
+                    Some(parse_hv("127.0.0.1")),
+                    parse_ip("127.0.0.2"),
                 ),
-                "127.0.0.3".parse::<IpAddr>().unwrap(),
+                parse_ip("127.0.0.1"),
             ),
             (
                 (
-                    vec!["127.0.0.2/32".parse().unwrap()],
-                    Some(HeaderValue::from_str("127.0.0.1").unwrap()),
-                    "127.0.0.2".parse().unwrap(),
+                    parse_cidrs(["127.0.0.1/32"]),
+                    Some(parse_hv("127.0.0.3,127.0.0.1")),
+                    parse_ip("127.0.0.1"),
                 ),
-                "127.0.0.1".parse::<IpAddr>().unwrap(),
+                parse_ip("127.0.0.3"),
             ),
             (
                 (
-                    vec!["127.0.0.1/32".parse().unwrap()],
-                    Some(HeaderValue::from_str("127.0.0.3,127.0.0.1").unwrap()),
-                    "127.0.0.1".parse().unwrap(),
+                    parse_cidrs(["127.0.0.1/32", "127.0.0.2/32"]),
+                    Some(parse_hv("127.0.0.3, 127.0.0.2, 127.0.0.1")),
+                    parse_ip("127.0.0.2"),
                 ),
-                "127.0.0.3".parse::<IpAddr>().unwrap(),
-            ),
-            (
-                (
-                    vec![
-                        "127.0.0.1/32".parse().unwrap(),
-                        "127.0.0.2/32".parse().unwrap(),
-                    ],
-                    Some(HeaderValue::from_str("127.0.0.3, 127.0.0.2, 127.0.0.1").unwrap()),
-                    "127.0.0.2".parse().unwrap(),
-                ),
-                "127.0.0.3".parse::<IpAddr>().unwrap(),
+                parse_ip("127.0.0.3"),
             ),
         ];
 
