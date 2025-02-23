@@ -1,7 +1,13 @@
 mod appsec;
+mod control_loop;
 mod headers;
+mod lapi;
+mod types;
 
 pub use appsec::{AppsecClient, CrowdsecAppsecApi};
+pub use control_loop::reconcile;
+pub use lapi::{CrowdsecLAPI, CrowdsecLapiClient};
+pub use types::CrowdsecAuth;
 
 use anyhow::anyhow;
 use reqwest::{Certificate, Identity};

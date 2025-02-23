@@ -7,6 +7,7 @@ use ipnet::IpNet;
 use reqwest::Url;
 
 use crate::utils::read_file;
+use crate::CrowdsecAuth;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -105,5 +106,19 @@ impl TryFrom<CertAuth> for ClientCerts {
             client_cert: read_file(&value.crowdsec_client_cert)?,
             client_key: read_file(&value.crowdsec_client_key)?,
         })
+    }
+}
+
+impl TryFrom<Auth> for CrowdsecAuth {
+    type Error = anyhow::Error;
+    fn try_from(value: Auth) -> Result<Self, Self::Error> {
+        if let Some(apikey) = value.crowdsec_apikey {
+            Ok(Self::Apikey(apikey))
+        } else if value.cert_auth.exists() {
+            let certs = ClientCerts::try_from(value.cert_auth)?;
+            Ok(Self::Certs(TryFrom::try_from(certs)?))
+        } else {
+            Err(anyhow::anyhow!("No authentication provided for vyos!"))
+        }
     }
 }
