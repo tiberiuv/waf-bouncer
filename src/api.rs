@@ -11,20 +11,20 @@ use ipnet::IpNet;
 use reqwest::StatusCode;
 use tower_http::trace::TraceLayer;
 
-use crate::AppState;
+use crate::App;
 
 pub struct ExtractRealIp(IpAddr);
 
 #[async_trait]
 impl<S> FromRequestParts<S> for ExtractRealIp
 where
-    AppState: FromRef<S>,
+    App: FromRef<S>,
     S: Send + Sync,
 {
     type Rejection = (StatusCode, &'static str);
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let app_state = AppState::from_ref(state);
+        let app_state = App::from_ref(state);
         let proxy_headers = app_state.config.proxy_headers;
         let addr = parts
             .extract::<ConnectInfo<SocketAddr>>()
@@ -136,24 +136,25 @@ async fn ip_info(
 }
 
 async fn check_ip(
-    State(app_state): State<AppState>,
+    State(app): State<App>,
     ExtractRealIp(real_client_ip): ExtractRealIp,
     request: Request,
 ) -> impl IntoResponse {
-    let is_trusted_network = app_state
-        .config
-        .trusted_networks
-        .iter()
-        .any(|x| x.contains(&real_client_ip));
+    let is_trusted_network = app.config.trusted_networks.contains(&real_client_ip);
 
     if is_trusted_network {
         tracing::debug!(?real_client_ip, "Ip is trusted, skipping appsec",);
         return StatusCode::OK.into_response();
     }
 
-    let result = app_state
+    if app.blacklist.contains(real_client_ip) {
+        tracing::info!(real_client_ip = real_client_ip.to_string(), "Ip is banned!");
+        return StatusCode::FORBIDDEN.into_response();
+    }
+
+    let result = app
         .appsec_client
-        .appsec_request(request, real_client_ip, app_state.config.proxy_headers)
+        .appsec_request(request, real_client_ip, app.config.proxy_headers)
         .await;
     match result {
         Ok(is_ok) => if is_ok {
@@ -170,7 +171,7 @@ async fn health() -> impl IntoResponse {
     StatusCode::OK.into_response()
 }
 
-fn api_server_router(state: AppState) -> Router {
+fn api_server_router(state: App) -> Router {
     let v1 = Router::new()
         .route("/ip-info", get(ip_info))
         .route("/waf", get(check_ip))
@@ -209,7 +210,7 @@ fn api_server_router(state: AppState) -> Router {
         .with_state(state)
 }
 
-pub async fn api_server_listen(state: AppState, socket_addr: SocketAddr) -> std::io::Result<()> {
+pub async fn api_server_listen(state: App, socket_addr: SocketAddr) -> std::io::Result<()> {
     let router = api_server_router(state);
 
     tracing::info!(listen = ?socket_addr, "Starting API server");
