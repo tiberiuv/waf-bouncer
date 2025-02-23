@@ -1,19 +1,25 @@
 use std::net::{IpAddr, SocketAddr};
+use std::sync::LazyLock;
+use std::time::Duration;
 
 use crate::crowdsec::CrowdsecAppsecApi;
 use axum::extract::{ConnectInfo, FromRef, FromRequestParts, Request, State};
 use axum::http::request::Parts;
 use axum::http::HeaderValue;
-use axum::response::IntoResponse;
+use axum::response::{Html, IntoResponse};
 use axum::routing::{get, MethodRouter};
 use axum::{async_trait, Json, RequestPartsExt, Router};
 use ipnet::IpNet;
 use reqwest::StatusCode;
+use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
 use crate::App;
 
 pub struct ExtractRealIp(IpAddr);
+
+pub static FORBIDDEN_HTML: LazyLock<Html<&str>> =
+    LazyLock::new(|| Html("<H1>Request blocked!<H1>"));
 
 #[async_trait]
 impl<S> FromRequestParts<S> for ExtractRealIp
@@ -21,7 +27,7 @@ where
     App: FromRef<S>,
     S: Send + Sync,
 {
-    type Rejection = (StatusCode, &'static str);
+    type Rejection = axum::response::Response;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let app_state = App::from_ref(state);
@@ -29,7 +35,7 @@ where
         let addr = parts
             .extract::<ConnectInfo<SocketAddr>>()
             .await
-            .map_err(|_err| (StatusCode::BAD_REQUEST, "Invalid"))?;
+            .map_err(|_err| (StatusCode::BAD_REQUEST, "Invalid").into_response())?;
         let headers = &parts.headers;
         let remote_client_ip = addr.ip();
 
@@ -45,7 +51,7 @@ where
                 ?remote_client_ip,
                 "Received request from untrusted ip rejecting...",
             );
-            return Err((StatusCode::FORBIDDEN, "Forbidden"));
+            return Err((StatusCode::FORBIDDEN, *FORBIDDEN_HTML).into_response());
         }
 
         let real_client_ip = get_client_ip_x_forwarded_for(
@@ -149,7 +155,7 @@ async fn check_ip(
 
     if app.blacklist.contains(real_client_ip) {
         tracing::info!(real_client_ip = real_client_ip.to_string(), "Ip is banned!");
-        return StatusCode::FORBIDDEN.into_response();
+        return (StatusCode::FORBIDDEN, *FORBIDDEN_HTML).into_response();
     }
 
     let result = app
@@ -158,12 +164,12 @@ async fn check_ip(
         .await;
     match result {
         Ok(is_ok) => if is_ok {
-            StatusCode::OK
+            StatusCode::OK.into_response()
         } else {
-            StatusCode::FORBIDDEN
+            (StatusCode::FORBIDDEN, *FORBIDDEN_HTML).into_response()
         }
         .into_response(),
-        Err(_err) => StatusCode::FORBIDDEN.into_response(),
+        Err(_err) => (StatusCode::FORBIDDEN, *FORBIDDEN_HTML).into_response(),
     }
 }
 
@@ -207,19 +213,24 @@ fn api_server_router(state: App) -> Router {
                 }
             }),
         )
+        .layer(TimeoutLayer::new(Duration::from_secs(5)))
         .with_state(state)
 }
 
-pub async fn api_server_listen(state: App, socket_addr: SocketAddr) -> std::io::Result<()> {
+pub async fn api_server_listen(
+    state: App,
+    socket_addr: SocketAddr,
+    handle: axum_server::Handle,
+) -> std::io::Result<()> {
     let router = api_server_router(state);
 
     tracing::info!(listen = ?socket_addr, "Starting API server");
     let listener = tokio::net::TcpListener::bind(socket_addr).await.unwrap();
-    axum::serve(
-        listener,
-        router.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .await
+
+    axum_server::from_tcp(listener.into_std()?)
+        .handle(handle)
+        .serve(router.into_make_service_with_connect_info::<SocketAddr>())
+        .await
 }
 
 #[cfg(test)]

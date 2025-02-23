@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use clap::Parser;
 use rustls::crypto::CryptoProvider;
+use tokio::signal;
 use tracing::info;
 use waf_bouncer::api::api_server_listen;
 use waf_bouncer::cli::ClientCerts;
@@ -11,6 +12,33 @@ use waf_bouncer::{
 };
 
 pub static BLACKLIST_CACHE: LazyLock<BlacklistCache> = LazyLock::new(Default::default);
+
+async fn shutdown_signal(handle: axum_server::Handle) {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    tracing::info!("Received termination signal shutting down");
+    handle.graceful_shutdown(Some(std::time::Duration::from_secs(10)));
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -47,20 +75,16 @@ async fn main() -> anyhow::Result<()> {
     };
     info!(?app.config, "config");
 
-    let mut task_set = tokio::task::JoinSet::new();
-    let app_clone = app.clone();
-    task_set.spawn(async move { reconcile(app_clone).await });
-    task_set.spawn(async move {
-        api_server_listen(app, cli.listen_addr)
-            .await
-            .map_err(anyhow::Error::new)
-    });
+    let handle = axum_server::Handle::new();
+    let shutdown_future = shutdown_signal(handle.clone());
 
-    while let Some(res) = task_set.join_next().await {
-        res??;
+    tokio::select! {
+        _ = reconcile(app.clone()) => {}
+        _ = api_server_listen(app, cli.listen_addr, handle) => {}
+        _ = shutdown_future => {
+            info!("Exit")
+        }
     }
-
-    info!("Exit!");
 
     Ok(())
 }
