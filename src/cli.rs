@@ -115,11 +115,11 @@ impl TryFrom<CertAuth> for ClientCerts {
 impl TryFrom<Auth> for CrowdsecAuth {
     type Error = anyhow::Error;
     fn try_from(value: Auth) -> Result<Self, Self::Error> {
-        if let Some(apikey) = value.crowdsec_apikey {
-            Ok(Self::Apikey(apikey))
-        } else if value.cert_auth.exists() {
+        if value.cert_auth.exists() {
             let certs = ClientCerts::try_from(value.cert_auth)?;
             Ok(Self::Certs(TryFrom::try_from(certs)?))
+        } else if let Some(apikey) = value.crowdsec_apikey {
+            Ok(Self::Apikey(apikey))
         } else {
             Err(anyhow::anyhow!("No authentication provided for vyos!"))
         }
