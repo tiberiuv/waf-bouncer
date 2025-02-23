@@ -27,6 +27,9 @@ pub struct Cli {
     #[arg(long, env = "CROWDSEC_API", default_value = "http://localhost:8080")]
     pub crowdsec_api: Url,
 
+    #[arg(long, env = "CROWDSEC_APPSEC_API")]
+    pub crowdsec_appsec_api: Option<Url>,
+
     #[command(flatten)]
     pub auth: Auth,
 

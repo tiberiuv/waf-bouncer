@@ -28,17 +28,20 @@ async fn main() -> anyhow::Result<()> {
         std::time::Duration::from_secs(cli.crowdsec_timeout),
     );
 
+    let crowdsec_appsec_api = cli.crowdsec_appsec_api.unwrap_or(cli.crowdsec_api);
+    let appsec_client = AppsecClient::new(
+        crowdsec_appsec_api,
+        Some(CertAuthRustls::try_from(certs)?),
+        cli.auth.crowdsec_apikey.unwrap_or_default(),
+    );
+
     let app = App {
         config: Config {
             trusted_proxies: cli.trusted_proxies.unwrap_or_default(),
             trusted_networks: cli.trusted_networks.map(From::from).unwrap_or_default(),
             proxy_headers: cli.proxy_request_headers,
         },
-        appsec_client: AppsecClient::new(
-            cli.crowdsec_api,
-            Some(CertAuthRustls::try_from(certs)?),
-            cli.auth.crowdsec_apikey.unwrap_or_default(),
-        ),
+        appsec_client,
         blacklist: &BLACKLIST_CACHE,
         lapi,
     };
