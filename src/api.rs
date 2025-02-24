@@ -173,7 +173,19 @@ async fn check_ip(
     }
 }
 
-async fn health() -> impl IntoResponse {
+async fn health(
+    State(app): State<App>,
+    ExtractRealIp(real_client_ip): ExtractRealIp,
+    request: Request,
+) -> impl IntoResponse {
+    let result = app
+        .appsec_client
+        .appsec_request(request, real_client_ip, app.config.proxy_headers)
+        .await;
+    if let Err(err) = result {
+        tracing::error!(?err);
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
     StatusCode::OK.into_response()
 }
 
