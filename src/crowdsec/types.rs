@@ -214,6 +214,21 @@ impl TryFrom<ClientCerts> for CertAuth {
     }
 }
 
+#[derive(serde::Deserialize, Debug)]
+pub struct Alert {
+    decisions: Vec<Decision>,
+}
+
+impl From<Alert> for IpRangeMixed {
+    fn from(value: Alert) -> Self {
+        DecisionsIpRange::from(DecisionsResponse {
+            new: Some(value.decisions),
+            deleted: None,
+        })
+        .new
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
