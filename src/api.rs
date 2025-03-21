@@ -2,12 +2,13 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::LazyLock;
 use std::time::Duration;
 
-use crate::crowdsec::CrowdsecAppsecApi;
+use crate::blacklist::IpRangeMixed;
+use crate::crowdsec::{Alert, CrowdsecAppsecApi};
 use axum::extract::{ConnectInfo, FromRef, FromRequestParts, Request, State};
 use axum::http::request::Parts;
 use axum::http::HeaderValue;
 use axum::response::{Html, IntoResponse};
-use axum::routing::{get, MethodRouter};
+use axum::routing::{get, post, MethodRouter};
 use axum::{async_trait, Json, RequestPartsExt, Router};
 use ipnet::IpNet;
 use reqwest::StatusCode;
@@ -184,16 +185,35 @@ async fn health(
         .await;
     if let Err(err) = result {
         tracing::error!(?err);
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        return StatusCode::INTERNAL_SERVER_ERROR;
     };
-    StatusCode::OK.into_response()
+    StatusCode::OK
+}
+
+async fn alert_webhook(
+    State(app): State<App>,
+    connect_info: ConnectInfo<SocketAddr>,
+    Json(alert_webhook): Json<Vec<Alert>>,
+) -> impl IntoResponse {
+    if !app.config.trusted_networks.contains(&connect_info.ip()) {
+        return StatusCode::FORBIDDEN;
+    }
+    let alert_webhook = alert_webhook
+        .into_iter()
+        .fold(IpRangeMixed::default(), |curr, new| curr.merge(&new.into()));
+
+    let new_blacklist = app.blacklist.load().merge(&alert_webhook);
+    app.blacklist.store(new_blacklist);
+
+    StatusCode::OK
 }
 
 fn api_server_router(state: App) -> Router {
     let v1 = Router::new()
         .route("/ip-info", get(ip_info))
         .route("/waf", get(check_ip))
-        .route("/health", get(health));
+        .route("/health", get(health))
+        .route("/alert-webhook", post(alert_webhook));
 
     let api = Router::new().nest("/v1", v1);
 
