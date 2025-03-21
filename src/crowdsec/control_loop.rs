@@ -19,10 +19,7 @@ pub async fn reconcile_decisions(
         .filter_new(&app.config.trusted_networks)
         .filter_new(blacklist.as_ref())
         .filter_deleted(blacklist.as_ref());
-    let new_blacklist = app
-        .blacklist
-        .load()
-        .as_ref()
+    let new_blacklist = blacklist
         .merge(&decision_ips.new)
         .exclude(&decision_ips.deleted);
     app.blacklist.store(new_blacklist);

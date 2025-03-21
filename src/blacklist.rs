@@ -93,8 +93,8 @@ impl IpRangeMixed {
         }
     }
 }
-impl From<Vec<IpNet>> for IpRangeMixed {
-    fn from(value: Vec<IpNet>) -> Self {
+impl<I: IntoIterator<Item = IpNet>> From<I> for IpRangeMixed {
+    fn from(value: I) -> Self {
         let (allow_list_v4, allow_list_v6) = split_nets(value);
 
         Self {
@@ -104,7 +104,7 @@ impl From<Vec<IpNet>> for IpRangeMixed {
     }
 }
 
-fn split_nets(nets: Vec<IpNet>) -> (Vec<Ipv4Net>, Vec<Ipv6Net>) {
+fn split_nets(nets: impl IntoIterator<Item = IpNet>) -> (Vec<Ipv4Net>, Vec<Ipv6Net>) {
     let mut nets_ipv4 = Vec::new();
     let mut nets_ipv6 = Vec::new();
 

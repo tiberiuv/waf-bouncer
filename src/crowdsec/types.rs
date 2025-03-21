@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::net::IpAddr;
 
@@ -211,6 +212,23 @@ impl TryFrom<ClientCerts> for CertAuth {
             root_ca: Certificate::from_pem(&value.ca_cert)?,
             identity: Identity::from_pem(&pem)?,
         })
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct Alert {
+    decisions: Vec<Decision>,
+    #[serde(flatten)]
+    rest: HashMap<String, serde_json::Value>,
+}
+
+impl From<Alert> for IpRangeMixed {
+    fn from(value: Alert) -> Self {
+        DecisionsIpRange::from(DecisionsResponse {
+            new: Some(value.decisions),
+            deleted: None,
+        })
+        .new
     }
 }
 

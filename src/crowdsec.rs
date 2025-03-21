@@ -7,7 +7,7 @@ mod types;
 pub use appsec::{AppsecClient, CrowdsecAppsecApi};
 pub use control_loop::reconcile;
 pub use lapi::{CrowdsecLAPI, CrowdsecLapiClient};
-pub use types::CrowdsecAuth;
+pub use types::{Alert, CrowdsecAuth};
 
 use anyhow::anyhow;
 use reqwest::{Certificate, Identity};
