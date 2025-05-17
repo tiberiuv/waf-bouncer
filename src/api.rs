@@ -5,11 +5,11 @@ use std::time::Duration;
 use crate::blacklist::IpRangeMixed;
 use crate::crowdsec::{Alert, CrowdsecAppsecApi};
 use axum::extract::{ConnectInfo, FromRef, FromRequestParts, Request, State};
-use axum::http::request::Parts;
 use axum::http::HeaderValue;
+use axum::http::request::Parts;
 use axum::response::{Html, IntoResponse};
-use axum::routing::{get, post, MethodRouter};
-use axum::{async_trait, Json, RequestPartsExt, Router};
+use axum::routing::{MethodRouter, get, post};
+use axum::{Json, RequestPartsExt, Router};
 use ipnet::IpNet;
 use reqwest::StatusCode;
 use tower_http::timeout::TimeoutLayer;
@@ -22,7 +22,6 @@ pub struct ExtractRealIp(IpAddr);
 pub static FORBIDDEN_HTML: LazyLock<Html<&str>> =
     LazyLock::new(|| Html("<H1>Request blocked!<H1>"));
 
-#[async_trait]
 impl<S> FromRequestParts<S> for ExtractRealIp
 where
     App: FromRef<S>,

@@ -6,8 +6,8 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.89"
 arc-swap = "1.7.1"
-axum = "0.7.7"
-axum-server = "0.7.1"
+axum = "0.8.4"
+axum-server = "0.7.2"
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.5.19", features = ["derive", "env"] }
 futures-util = "0.3.31"
@@ -15,7 +15,7 @@ hyper-rustls = "0.27.3"
 hyper-util = { version = "0.1.9", features = ["client"] }
 ipnet = { version = "2.10.1", features = ["serde"] }
 iprange = { version = "0.6.7", features = ["serde"] }
-rand = "0.8.5"
+rand = "0.9.1"
 reqwest = { version = "0.12.8", features = ["json", "rustls-tls"] }
 rustls = { version = "0.23.14", features = ["aws-lc-rs"] }
 serde = { version = "1.0.210", features = ["derive"] }
