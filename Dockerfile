@@ -14,7 +14,7 @@ FROM clux/muslrust:stable AS builder
 COPY . .
 COPY --from=cacher /volume/target target
 COPY --from=cacher /root/.cargo /root/.cargo
-RUN cargo build --bin run --release --target x86_64-unknown-linux-musl
+RUN cargo build --bin waf-bouncer --release --target x86_64-unknown-linux-musl
 
 
 # Need cacerts
