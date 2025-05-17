@@ -19,5 +19,8 @@ RUN cargo build --bin waf-bouncer --release --target x86_64-unknown-linux-musl
 
 # Need cacerts
 FROM gcr.io/distroless/static:nonroot
+ARG REPOSTIORY
+ENV REPOSITORY=$REPOSTIORY
+LABEL org.opencontainers.image.source=https://github.com/${REPOSITORY}
 COPY --from=builder --chown=nonroot:nonroot /volume/target/x86_64-unknown-linux-musl/release/waf-bouncer /app/waf-bouncer
 ENTRYPOINT ["/app/waf-bouncer"]
